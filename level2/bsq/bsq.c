@@ -22,50 +22,33 @@ int loadElements(FILE* file, t_elements* elements)
 	return(0);
 }
 
-char* ft_substr(char* arr, int start, int len)
+char* ft_substr(char* arr, int len)
 {
 	char* str = (char*)malloc(len + 1);
 	if (!str)
 		return (NULL);
 	int i = 0;
-	int j = 0;
-	while (arr[i])
+	while (i < len)
 	{
-		if ((i >= start) && (j < len))
-		{
-			str[j] = arr[i];
-			j++;
-		}
+		str[i] = arr[i];
 		i++;
 	}
-	str[j] = '\0';
+	str[i] = '\0';
 	return(str);
 }
 
 void free_map(char** arr)
 {
-	int	i = 0;
+	int i = 0;
 	if(arr)
 	{
 		while (arr[i] != NULL)
 		{
-			if(arr[i])
-				free(arr[i]);
+			free(arr[i]);
 			i++;
 		}
 		free(arr);
 	}
-}
-
-void print(char** arr)
-{
-	int i = 0;
-	while(arr[i])
-	{
-		printf("%s\n", arr[i]);
-		i++;
-	}
-	printf("\n");
 }
 
 int element_control(char** map, char c1, char c2)
@@ -88,19 +71,19 @@ int element_control(char** map, char c1, char c2)
 int loadMap(FILE* file, t_map* map, t_elements* elements)
 {
 	map->height = elements->n_lines;
-	map->grid = (char**)malloc((map->height + 1) * (sizeof(char *)));
-	map->grid[map->height] = NULL;
+	map->grid = (char**)calloc(map->height + 1, sizeof(char *));
+	if(!map->grid)
+		return(-1);
 
 	char* line = NULL;
 	size_t len = 0;
 
 	if(getline(&line, &len, file) == -1) {
+		free(line);
 		free_map(map->grid);
 		return(-1);
 	}
 
-	//int i = 0;
-	//while(i < elements->n_lines)
 	for(int i = 0; i < map->height; i++)
 	{
 		int read = getline(&line, &len, file);
@@ -116,7 +99,7 @@ int loadMap(FILE* file, t_map* map, t_elements* elements)
 			free_map(map->grid);
 			return(-1);
 		}
-		map->grid[i] = ft_substr(line, 0, read);
+		map->grid[i] = ft_substr(line, read);
 		if(!(map->grid[i]))
 		{
 			free(line);
@@ -133,18 +116,7 @@ int loadMap(FILE* file, t_map* map, t_elements* elements)
 				return(-1);
 			}
 		}
-		//i++;
 	}
-
-	/*
-	ssize_t extra = getline(&line, &len, file);
-	if(extra != -1) {  // Fazladan satır var!
-		free(line);
-		free_map(map->grid);
-		return(-1);
-	}
-	// gerek var mı bilmiyorum??
-	*/
 
 	if(element_control(map->grid, elements->empty, elements->obstacle) == -1) {
 		free(line);
@@ -170,51 +142,37 @@ int find_min(int n1, int n2, int n3)
 
 void find_big_square(t_map* map, t_square* square, t_elements* elements)
 {
-	// matrix init
-	int matrix[map->height][map->width];
-	for(int i = 0; i < map->height; i++)
-	{
-		for(int j = 0; j < map->width; j++)
-			matrix[i][j] = 0;
-	}
+	int *dp = (int*)calloc(map->width, sizeof(int));
+	if(!dp)
+		return;
 
 	for(int i = 0; i < map->height; i++)
 	{
+		int prev = 0;
 		for(int j = 0; j < map->width; j++)
 		{
+			int temp = dp[j];
 			if(map->grid[i][j] == elements->obstacle)
-				matrix[i][j] = 0;
+				dp[j] = 0;
 			else if(i == 0 || j == 0)
-				matrix[i][j] = 1;
-			else {
-				int min = find_min(matrix[i - 1][j],matrix[i - 1][j - 1], matrix[i][j - 1]);
-				matrix[i][j] = min + 1;
-			}
+				dp[j] = 1;
+			else
+				dp[j] = find_min(dp[j], prev, dp[j - 1]) + 1;
 
-			if(matrix[i][j] > square->size)
+			if(dp[j] > square->size)
 			{
-				square->size = matrix[i][j];
-				square->i = i - matrix[i][j] + 1;
-				square->j = j - matrix[i][j] + 1;
+				square->size = dp[j];
+				square->i = i - dp[j] + 1;
+				square->j = j - dp[j] + 1;
 			}
+			prev = temp;
 		}
 	}
-	/** matrix print
-	for(int i = 0; i < map->height; i++)
-	{
-		for(int j = 0; j < map->width; j++)
-		{
-			printf("%d", matrix[i][j]);
-		}
-		printf("\n");
-	}
-	*/
-
+	free(dp);
 }
 
 void print_filled_square(t_map* map, t_square* square, t_elements* elements)
 {
-
 	for(int i = square->i; i < square->i + square->size; i++)
 	{
 		for(int j = square->j; j < square->j + square->size; j++)
@@ -240,12 +198,9 @@ int execute_bsq(FILE* file)
 	if(loadMap(file, &map, &elements) == -1)
 		return(-1);
 
-	//print(map.grid);
-
 	t_square square;
 	square.size = 0; square.i = 0; square.j = 0;
 	find_big_square(&map, &square, &elements);
-	// printf("size: %d, i: %d, j: %d", square.size, square.i, square.j);
 	print_filled_square(&map, &square, &elements);
 	free_map(map.grid);
 	return(0);
@@ -256,8 +211,7 @@ int convert_file_pointer(char* name)
 	FILE* file = fopen(name, "r");
 	if(!file)
 		return(-1);
-	int ret = 0;
-	ret = execute_bsq(file);
+	int ret = execute_bsq(file);
 	fclose(file);
 	return(ret);
 }
