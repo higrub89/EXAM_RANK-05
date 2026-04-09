@@ -21,7 +21,7 @@ int main(int argc, char* argv[])
 			if(convert_file_pointer(argv[i]) == -1)
 				fprintf(stderr, "map error\n");
 			i++;
-			if(i < argc - 1)
+			if(i < argc)
 				fprintf(stdout, "\n");
 
 		}
